@@ -1,0 +1,45 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: miniapp/api-server/Dockerfile
+    environment:
+      PORT: 3002
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      FNS_DATA_DIR: /data/fns
+      DADATA_API_KEY: ${DADATA_API_KEY:-}
+      GIGACHAT_AUTH_KEY: ${GIGACHAT_AUTH_KEY:-}
+      GIGACHAT_SCOPE: ${GIGACHAT_SCOPE:-GIGACHAT_API_PERS}
+      GIGACHAT_MODEL: ${GIGACHAT_MODEL:-GigaChat-2-Pro}
+      OPORA_SOURCE_DIR: /data/sources
+      OPORA_FUNDING_DIR: /data/sources/funding
+      AI_SOURCE_SYNC: ${AI_SOURCE_SYNC:-on}
+      FUNDING_SYNC: ${FUNDING_SYNC:-on}
+    volumes:
+      - ${FNS_DATA_DIR:-./fns-data}:/data/fns:ro
+      - opora-sources:/data/sources
+    ports:
+      - "127.0.0.1:3002:3002"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  miniapp:
+    build:
+      context: .
+      dockerfile: miniapp/Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+volumes:
+  opora-sources:

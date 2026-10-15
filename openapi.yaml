@@ -1,0 +1,2811 @@
+openapi: 3.0.3
+info:
+  title: Опора API
+  version: 1.0.0
+  description: Официальный каталог, импортированный индекс ФНС и обезличенное объяснение.
+    API не подает заявки и не принимает решения о финансировании.
+servers:
+- url: https://business-opora.ru
+  description: Production
+- url: http://localhost:3002
+  description: Локальный API
+- url: http://localhost:3000
+  description: Frontend proxy / Docker
+paths:
+  /api/health:
+    get:
+      summary: Работоспособность API
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - ok
+                  service:
+                    type: string
+                    enum:
+                    - opora
+                  catalog:
+                    type: string
+                    enum:
+                    - official
+                  privacy:
+                    type: string
+                    enum:
+                      - context-v2
+                  revision:
+                    type: string
+                    nullable: true
+                  legacyPrivacy:
+                    type: string
+                    enum:
+                      - strict-v1
+                required:
+                - status
+                - service
+                - catalog
+                - privacy
+                - revision
+                - legacyPrivacy
+        '429':
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/providers/status:
+    get:
+      summary: Готовность официальных источников и AI
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderStatus'
+        '429':
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/funding/catalog:
+    get:
+      summary: Проверенный снимок официального каталога
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mode:
+                    type: string
+                    enum:
+                    - official
+                  opportunities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FundingOpportunity'
+                required:
+                - mode
+                - opportunities
+        '429':
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/funding/status:
+    get:
+      summary: Состав и версия официального снимка
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundingStatus'
+        '429':
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/ai/status:
+    get:
+      summary: Настройка AI и последняя проверка соединения
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIStatus'
+        '429':
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/company/{inn}:
+    get:
+      summary: Поиск компании по ИНН через DaData или импортированный индекс ФНС
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyResponse'
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        '502':
+          description: Источник недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Источник не настроен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+      parameters:
+      - name: inn
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^(\d{10}|\d{12})$
+        description: Контрольные цифры проверяются сервером. Источник выбирается конфигурацией; недоступный или
+          ненастроенный источник возвращает 503.
+  /api/funding/match:
+    post:
+      summary: Детерминированный подбор без LLM и без ИНН
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile:
+                  $ref: '#/components/schemas/FundingProfile'
+                need:
+                  $ref: '#/components/schemas/FundingNeed'
+                preparedDocuments:
+                  type: object
+                  additionalProperties:
+                    type: array
+                    maxItems: 30
+                    items:
+                      type: string
+                      maxLength: 200
+              required:
+              - profile
+              - need
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundingResponse'
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/assistant:
+    post:
+      summary: Объяснение результатов через GigaChat с privacy boundary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                task:
+                  type: string
+                  enum:
+                  - matching
+                  - documents
+                  - deadlines
+                  - strategy
+                  - draft
+                  - why_fit
+                  - why_not
+                  - submit_now
+                  - compare
+                draftKind:
+                  type: string
+                  enum:
+                  - project
+                  - rationale
+                  - cover
+                context:
+                  type: object
+                  properties:
+                    profile:
+                      $ref: '#/components/schemas/FundingProfile'
+                    need:
+                      $ref: '#/components/schemas/FundingNeed'
+                    programId:
+                      type: string
+                    application:
+                      type: object
+                      properties:
+                        preparedDocuments:
+                          type: array
+                          items:
+                            type: string
+                        budget:
+                          type: number
+                          nullable: true
+                    applications:
+                      type: array
+                      description: Сохранённые заявки; учитываются только ID из серверного каталога.
+                      items:
+                        type: object
+                        properties:
+                          programId:
+                            type: string
+                          preparedDocuments:
+                            type: array
+                            items:
+                              type: string
+                          budget:
+                            type: number
+                            nullable: true
+              required:
+              - question
+              - context
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer:
+                    type: string
+                  mode:
+                    type: string
+                    enum:
+                    - llm
+                  provider:
+                    type: string
+                    enum:
+                    - gigachat
+                  opportunityIds:
+                    type: array
+                    description: IDs официальных программ из серверного контекста ответа; модель их не задаёт.
+                    items:
+                      type: string
+                  privacy:
+                    type: object
+                    properties:
+                      policy:
+                        type: string
+                        enum:
+                        - strict-v1
+                      protectedCount:
+                        type: integer
+                    required:
+                      - policy
+                      - protectedCount
+                required:
+                - answer
+                - mode
+                - provider
+                - privacy
+                - opportunityIds
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        '502':
+          description: Источник недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Источник не настроен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+      description: Совместимый маршрут strict-v1. При отсутствии GigaChat возвращает 503; не выполняет подачу заявки.
+  /api/funding/calendar.ics:
+    get:
+      summary: Календарь опубликованных сроков для скачивания
+      parameters:
+        - in: query
+          name: ids
+          description: ID программ через запятую (до 50). Если не указан, возвращается весь каталог.
+          schema:
+            type: string
+      responses:
+        '400':
+          description: Неизвестные ID программ или неверный формат
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: iCalendar RFC 5545
+          content:
+            text/calendar:
+              schema:
+                type: string
+        '429':
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+  /api/ai/assist:
+    post:
+      summary: AI с контекстом, историей, источниками и проверяемыми предложениями
+      description: Свободный текст сохраняет смысл после минимизации известных
+        реквизитов. Не изменяет состояние пользователя. До 384 КБ JSON, 60 000
+        символов документов и четырёх одновременных запросов. При недоступном
+        провайдере возможен ответ 200 с mode=local.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AIContextRequest"
+      responses:
+        "200":
+          description: AI-ответ или явно обозначенный расчёт по правилам
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIContextResult"
+        "400": &a1
+          description: Ошибка запроса или провайдера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429": {"description":"RATE_LIMITED","content":{"application/json":{"schema":{"$ref":"#/components/schemas/APIError"}}}}
+        "502": {"description":"Ошибка запроса или провайдера","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+  /api/funding/updates:
+    get:
+      summary: Состояние мониторинга официальных страниц и обнаруженные изменения
+      responses:
+        "200":
+          description: События отражают изменения текста страницы; условия требуют сверки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkedAt:
+                    type: string
+                    nullable: true
+                  pages:
+                    type: integer
+                  errors:
+                    type: integer
+                  updates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AISourceUpdate"
+                required:
+                  - checkedAt
+                  - pages
+                  - errors
+                  - updates
+        "429": {"description":"RATE_LIMITED","content":{"application/json":{"schema":{"$ref":"#/components/schemas/APIError"}}}}
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+  /api/funding/live-status:
+    get:
+      summary: Состояние импорта каталога Электронного бюджета
+      description: Подключён в production с LiveCatalog. Не означает подтверждение условий каждой программы.
+      responses:
+        "200":
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveFundingStatus"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+  /api/funding/interest:
+    post:
+      summary: Учесть интерес к региону для загрузки официальных источников
+      description: Не создаёт заявку и не меняет критерии matching. Доступен при подключённом LiveCatalog.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                region:
+                  type: string
+                  maxLength: 100
+              required:
+                - region
+      responses:
+        "204":
+          description: Интерес учтён; тело ответа отсутствует.
+        "400":
+          description: Bad Request при неверном поле; INVALID_INPUT при некорректном JSON.
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - Bad Request
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+  /api/account:
+    get:
+      summary: Аккаунт текущей сессии
+      security:
+        - GuestSession: []
+      responses:
+        "200":
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountState"
+        "400":
+          description: Некорректный JSON или данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "401":
+          description: SESSION_REQUIRED — нет корректного заголовка X-Opora-Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+      description: При первом обращении создаёт запись аккаунта для сессии браузера. Сессия не подтверждает личность
+        и полномочия действовать от имени компании.
+  /api/account/company:
+    put:
+      summary: Сохранить компанию в аккаунте
+      security:
+        - GuestSession: []
+      responses:
+        "200":
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountState"
+        "400":
+          description: Некорректный JSON или данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "401":
+          description: SESSION_REQUIRED — нет корректного заголовка X-Opora-Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "409":
+          description: ACCOUNT_CONFLICT — профиль изменён в другой вкладке.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+      description: ИНН проверяется по контрольным цифрам; название, регион и основной ОКВЭД обязательны. revision
+        должен совпадать с текущим значением аккаунта.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                company:
+                  type: object
+                  nullable: false
+                  description: Сохранённые публичные факты. null означает отсутствие компании; реквизиты полномочий не
+                    сохраняются.
+                  properties:
+                    region:
+                      type: string
+                      minLength: 1
+                      maxLength: 120
+                    okved:
+                      type: string
+                      pattern: ^\d{2}(\.\d{1,2}){0,2}$
+                      maxLength: 120
+                    companyType:
+                      type: string
+                      enum:
+                        - ""
+                        - ООО
+                        - АО
+                        - ИП
+                        - КФХ
+                        - другое
+                        - null
+                      maxLength: 120
+                      nullable: true
+                    ageMonths:
+                      description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+                      oneOf:
+                        - type: integer
+                          nullable: true
+                          minimum: 0
+                          maximum: 3000
+                        - type: string
+                          enum:
+                            - ""
+                    employees:
+                      description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+                      oneOf:
+                        - type: integer
+                          nullable: true
+                          minimum: 0
+                          maximum: 10000000
+                        - type: string
+                          enum:
+                            - ""
+                    revenue:
+                      description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+                      oneOf:
+                        - type: integer
+                          nullable: true
+                          minimum: 0
+                          maximum: 1000000000000000
+                        - type: string
+                          enum:
+                            - ""
+                    isSme:
+                      type: string
+                      enum:
+                        - "yes"
+                        - "no"
+                        - unknown
+                        - null
+                      maxLength: 120
+                      nullable: true
+                    tax:
+                      type: string
+                      maxLength: 120
+                      nullable: true
+                    goals:
+                      type: array
+                      items:
+                        type: string
+                        maxLength: 120
+                      maxItems: 20
+                      nullable: true
+                    applicantType:
+                      type: string
+                      enum:
+                        - legal_entity
+                        - individual_entrepreneur
+                        - individual
+                        - team
+                        - project
+                    companyStatus:
+                      type: string
+                      nullable: true
+                      maxLength: 120
+                    industry:
+                      type: string
+                      maxLength: 120
+                      nullable: true
+                    stage:
+                      type: string
+                      maxLength: 120
+                      nullable: true
+                    inn:
+                      type: string
+                      pattern: ^(\d{10}|\d{12})$
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 120
+                  required:
+                    - inn
+                    - name
+                    - region
+                    - okved
+                revision:
+                  type: integer
+                  minimum: 0
+              required:
+                - company
+                - revision
+    delete:
+      summary: Удалить компанию из аккаунта
+      security:
+        - GuestSession: []
+      responses:
+        "200":
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountState"
+        "400":
+          description: Некорректный JSON или данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "401":
+          description: SESSION_REQUIRED — нет корректного заголовка X-Opora-Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+      description: Удаляет компанию, подписку и связанные уведомления. Возвращает аккаунт с company=null и увеличенной
+        revision.
+  /api/account/verification/esia:
+    post:
+      summary: Заглушка проверки полномочий через ЕСИА
+      description: "Интеграция не подключена: после авторизации всегда возвращается 503 ESIA_NOT_CONFIGURED.
+        Проверка и подача заявки не выполняются."
+      security:
+        - GuestSession: []
+      responses:
+        "400":
+          description: Некорректный JSON или данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "401":
+          description: SESSION_REQUIRED — нет корректного заголовка X-Opora-Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+  /api/notifications:
+    get:
+      summary: Подписка и уведомления пользователя
+      security:
+        - GuestSession: []
+      responses:
+        "200":
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationsState"
+        "400":
+          description: Некорректный JSON или данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "401":
+          description: SESSION_REQUIRED — нет корректного заголовка X-Opora-Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+      description: До 100 уведомлений текущего контекста подписки, новые первыми. monitor присутствует, если передан
+        callback worker status (в production передан).
+  /api/notifications/subscription:
+    put:
+      summary: Сохранить подписку на новые меры
+      security:
+        - GuestSession: []
+      responses:
+        "200":
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                    enum:
+                      - true
+                required:
+                  - enabled
+        "400":
+          description: Некорректный JSON или данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "401":
+          description: SESSION_REQUIRED — нет корректного заголовка X-Opora-Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+      description: Требуются непустой регион и хотя бы одно из okved, industry, goals. Если need отсутствует или
+        purpose пуст, используется «Все цели» с неизвестными суммами. Уведомления показываются в приложении; внешняя
+        доставка не подключена.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile:
+                  allOf:
+                    - $ref: "#/components/schemas/FundingProfile"
+                    - required:
+                        - region
+                      anyOf:
+                        - required:
+                            - okved
+                        - required:
+                            - industry
+                        - required:
+                            - goals
+                need:
+                  type: object
+                  nullable: true
+                  description: Если purpose отсутствует или пуст, используется «Все цели» с неизвестными суммами.
+                  properties:
+                    purpose:
+                      type: string
+                    amount:
+                      $ref: '#/components/schemas/FundingNeed/properties/amount'
+                    ownFunds:
+                      $ref: '#/components/schemas/FundingNeed/properties/ownFunds'
+                    preferredTermMonths:
+                      $ref: '#/components/schemas/FundingNeed/properties/preferredTermMonths'
+                    needsCollateralSupport:
+                      type: boolean
+                      nullable: true
+              required:
+                - profile
+    delete:
+      summary: Удалить подписку и связанные уведомления
+      security:
+        - GuestSession: []
+      responses:
+        "200":
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                    enum:
+                      - false
+                required:
+                  - enabled
+        "400":
+          description: Некорректный JSON или данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "401":
+          description: SESSION_REQUIRED — нет корректного заголовка X-Opora-Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+  /api/notifications/read:
+    post:
+      summary: Отметить уведомление прочитанным
+      security:
+        - GuestSession: []
+      responses:
+        "200":
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                required:
+                  - ok
+        "400":
+          description: Bad Request при неверном поле; INVALID_INPUT при некорректном JSON.
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - Bad Request
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: SESSION_REQUIRED — нет корректного заголовка X-Opora-Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "429":
+          description: RATE_LIMITED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+      description: Изменяет только уведомление текущего пользователя. Неизвестный или чужой id также возвращает
+        ok=true без изменения чужих данных.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+              required:
+                - id
+components:
+  schemas:
+    AIWorkspaceInput:
+      type: object
+      required: [savedIds, applications]
+      properties:
+        savedIds:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+        applications:
+          type: array
+          maxItems: 30
+          items:
+            type: object
+            required: [programId]
+            properties:
+              programId:
+                type: string
+              project:
+                type: string
+                maxLength: 2000
+              budget:
+                type: integer
+                nullable: true
+                minimum: 0
+                maximum: 1000000000000000
+              preparedDocuments:
+                type: array
+                items:
+                  type: string
+              hasDraft:
+                type: boolean
+              reviewConfirmed:
+                type: boolean
+    AIWorkspaceInsight:
+      type: object
+      required: [title, text, action]
+      properties:
+        title:
+          type: string
+          maxLength: 60
+        text:
+          type: string
+          maxLength: 300
+        action:
+          type: string
+          enum: [programs, funding, applications, profile, assistant, calendar]
+    AIPersonalization:
+      type: object
+      required: [summary, sections, priorities]
+      properties:
+        summary:
+          type: string
+          maxLength: 700
+        sections:
+          type: object
+          required: [home, programs, applications, calendar, assistant]
+          properties:
+            home:
+              $ref: '#/components/schemas/AIWorkspaceInsight'
+            programs:
+              $ref: '#/components/schemas/AIWorkspaceInsight'
+            applications:
+              $ref: '#/components/schemas/AIWorkspaceInsight'
+            calendar:
+              $ref: '#/components/schemas/AIWorkspaceInsight'
+            assistant:
+              $ref: '#/components/schemas/AIWorkspaceInsight'
+        priorities:
+          type: array
+          maxItems: 6
+          items:
+            type: object
+            required: [programId, reason]
+            properties:
+              programId:
+                type: string
+              reason:
+                type: string
+                maxLength: 300
+    AIContextRequest:
+      type: object
+      properties:
+        task:
+          type: string
+          enum:
+            - chat
+            - intake
+            - search
+            - analysis
+            - strategy
+            - review
+            - draft
+            - changes
+            - workspace
+        question:
+          type: string
+          maxLength: 2000
+          minLength: 1
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum:
+                  - user
+                  - assistant
+              text:
+                type: string
+                maxLength: 12000
+                minLength: 1
+            required:
+              - role
+              - text
+          maxItems: 20
+        context:
+          type: object
+          properties:
+            profile:
+              $ref: "#/components/schemas/FundingProfile"
+            need:
+              $ref: "#/components/schemas/FundingNeed"
+            programId:
+              type: string
+              maxLength: 100
+            page:
+              type: string
+              maxLength: 40
+            project:
+              type: string
+              maxLength: 10000
+            budget:
+              type: integer
+              nullable: true
+              minimum: 0
+              maximum: 1000000000000000
+            draft:
+              type: string
+              maxLength: 18000
+            draftKind:
+              type: string
+              maxLength: 100
+            preparedDocuments:
+              type: array
+              items:
+                type: string
+                maxLength: 160
+              maxItems: 30
+            documents:
+              type: array
+              items:
+                $ref: "#/components/schemas/AIDocument"
+              maxItems: 8
+            identifiers:
+              type: object
+              description: Известные реквизиты для удаления из свободного текста; не
+                передаются провайдеру.
+              additionalProperties:
+                type: string
+                maxLength: 500
+            workspace:
+              $ref: '#/components/schemas/AIWorkspaceInput'
+      required:
+        - task
+        - question
+        - context
+    AIDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          maxLength: 60
+          pattern: ^[\w-]+$
+          minLength: 1
+        name:
+          type: string
+          maxLength: 200
+        pages:
+          type: array
+          items:
+            type: object
+            properties:
+              page:
+                type: integer
+                minimum: 1
+                maximum: 1000
+              text:
+                type: string
+                maxLength: 40000
+            required:
+              - page
+          maxItems: 40
+          minItems: 1
+      required:
+        - id
+        - pages
+    AIEvidence:
+      type: object
+      properties:
+        id:
+          type: string
+          maxLength: 160
+        title:
+          type: string
+        text:
+          type: string
+        url:
+          type: string
+          format: uri
+        checkedAt:
+          type: string
+          maxLength: 30
+        page:
+          type: integer
+        documentId:
+          type: string
+          maxLength: 60
+        opportunityId:
+          type: string
+          maxLength: 100
+      required:
+        - id
+        - title
+        - text
+    AIContextResult:
+      type: object
+      properties:
+        personalization:
+          $ref: '#/components/schemas/AIPersonalization'
+        providerFailure:
+          type: string
+          description: Обезличенный код сбоя провайдера, без содержимого запроса или ответа.
+        mode:
+          type: string
+          enum:
+            - llm
+            - local
+        answer:
+          type: string
+        notice:
+          type: string
+          maxLength: 1000
+        followups:
+          type: array
+          items:
+            type: string
+            maxLength: 300
+          maxItems: 3
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AIEvidence"
+        actions:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum:
+                  - open_program
+                  - prepare_application
+                  - open_funding
+              label:
+                type: string
+              programId:
+                type: string
+                maxLength: 100
+            required:
+              - type
+              - label
+        proposedNeed:
+          $ref: "#/components/schemas/FundingNeed"
+        proposedProfile:
+          $ref: "#/components/schemas/FundingProfile"
+        draft:
+          type: string
+          maxLength: 18000
+        findings:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+                maxLength: 120
+              detail:
+                type: string
+                maxLength: 1000
+              severity:
+                type: string
+                enum:
+                  - check
+                  - warning
+              evidenceId:
+                type: string
+                maxLength: 160
+              quote:
+                type: string
+                maxLength: 800
+            required:
+              - title
+              - detail
+              - severity
+          maxItems: 15
+        matches:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              status:
+                type: string
+                maxLength: 40
+              score:
+                type: number
+              explanation:
+                type: string
+            required:
+              - id
+              - title
+              - status
+              - score
+              - explanation
+        scenarios:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+                maxLength: 100
+              need:
+                $ref: "#/components/schemas/FundingNeed"
+              matches:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    title:
+                      type: string
+                    status:
+                      type: string
+                      maxLength: 40
+                    score:
+                      type: number
+                  required:
+                    - id
+                    - title
+                    - status
+                    - score
+            required:
+              - label
+              - need
+              - matches
+          maxItems: 3
+        tools:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+        usage:
+          type: object
+          properties:
+            calls:
+              type: integer
+            tokens:
+              type: integer
+            durationMs:
+              type: number
+          required:
+            - calls
+            - tokens
+            - durationMs
+      required:
+        - mode
+        - answer
+        - followups
+        - citations
+        - actions
+        - findings
+        - matches
+        - scenarios
+        - tools
+    AISourceUpdate:
+      type: object
+      properties:
+        id:
+          type: string
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+        title:
+          type: string
+          maxLength: 200
+        detectedAt:
+          type: string
+          format: date-time
+        opportunityId:
+          type: string
+          maxLength: 100
+        kind:
+          type: string
+          enum:
+            - changed
+            - discovered
+      required:
+        - id
+        - url
+        - title
+        - detectedAt
+        - kind
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+      required:
+      - error
+      - code
+    FundingNeed:
+      type: object
+      properties:
+        purpose:
+          type: string
+          description: Текущая категория цели. Старые значения и пустая строка принимаются для совместимости и нормализуются; пустая строка означает «Все цели».
+          enum:
+          - Все цели
+          - Запуск или развитие бизнеса
+          - Оборудование и модернизация
+          - Оборотные расходы
+          - Разработка продукта / технологии
+          - Продажи, продвижение и экспорт
+          - Персонал и обучение
+          - Помещения и инфраструктура
+          - ''
+          - покупка оборудования
+          - оборотные средства
+          - разработка продукта
+          - найм сотрудников
+          - экспорт
+          - аренда / недвижимость
+          - сельхозтехника
+          - запуск производства
+          - масштабирование
+        amount:
+          description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+          oneOf:
+            - type: integer
+              nullable: true
+              minimum: 1
+              maximum: 1000000000000000
+            - type: string
+              enum:
+                - ""
+        ownFunds:
+          description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+          oneOf:
+            - type: integer
+              nullable: true
+              minimum: 0
+              maximum: 1000000000000000
+            - type: string
+              enum:
+                - ""
+        preferredTermMonths:
+          description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+          oneOf:
+            - type: integer
+              nullable: true
+              minimum: 1
+              maximum: 600
+            - type: string
+              enum:
+                - ""
+        needsCollateralSupport:
+          type: boolean
+          nullable: true
+      required:
+      - purpose
+    FundingProfile:
+      type: object
+      properties:
+        region:
+          type: string
+          maxLength: 120
+          nullable: true
+        okved:
+          type: string
+          maxLength: 120
+          nullable: true
+          pattern: ^(?:\d{2}(?:\.\d{1,2}){0,2})?$
+        companyType:
+          type: string
+          enum:
+          - ""
+          - ООО
+          - АО
+          - ИП
+          - КФХ
+          - другое
+          - null
+          maxLength: 120
+          nullable: true
+        ageMonths:
+          description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+          oneOf:
+            - type: integer
+              nullable: true
+              minimum: 0
+              maximum: 3000
+            - type: string
+              enum:
+                - ""
+        employees:
+          description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+          oneOf:
+            - type: integer
+              nullable: true
+              minimum: 0
+              maximum: 10000000
+            - type: string
+              enum:
+                - ""
+        revenue:
+          description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+          oneOf:
+            - type: integer
+              nullable: true
+              minimum: 0
+              maximum: 1000000000000000
+            - type: string
+              enum:
+                - ""
+        isSme:
+          type: string
+          enum:
+          - "yes"
+          - "no"
+          - unknown
+          - null
+          maxLength: 120
+          nullable: true
+        tax:
+          type: string
+          maxLength: 120
+          nullable: true
+        goals:
+          type: array
+          items:
+            type: string
+            maxLength: 120
+          maxItems: 20
+          nullable: true
+        applicantType:
+          type: string
+          enum:
+          - legal_entity
+          - individual_entrepreneur
+          - individual
+          - team
+          - project
+        companyStatus:
+          type: string
+          nullable: true
+          maxLength: 120
+        industry:
+          type: string
+          maxLength: 120
+          nullable: true
+        stage:
+          type: string
+          maxLength: 120
+          nullable: true
+    FundingRequirement:
+      type: object
+      properties:
+        field:
+          type: string
+        operator:
+          type: string
+          enum:
+          - eq
+          - neq
+          - gte
+          - lte
+          - prefix
+          - includes
+        value:
+          oneOf:
+          - type: string
+          - type: number
+          - type: boolean
+          - type: array
+            items:
+              type: string
+        required:
+          type: boolean
+        label:
+          type: string
+      required:
+      - field
+      - operator
+      - value
+      - required
+      - label
+    FundingSource:
+      type: object
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+          nullable: true
+        type:
+          type: string
+          enum:
+          - official
+        updatedAt:
+          type: string
+          format: date
+        verifiedAt:
+          type: string
+          format: date
+      required:
+      - name
+      - url
+      - type
+      - updatedAt
+    FundingOpportunity:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        kind:
+          type: string
+          enum:
+            - grant
+            - subsidy
+            - preferential_loan
+            - commercial_loan
+            - loan
+            - guarantee
+            - lease
+            - tax
+            - property
+            - service
+            - investment
+            - unknown
+        providerName:
+          type: string
+        providerType:
+          type: string
+          enum:
+            - government
+            - development_institution
+            - bank
+            - fund
+            - regional
+            - private
+        description:
+          type: string
+        version:
+          type: string
+        amountMin:
+          type: number
+          nullable: true
+        amountMax:
+          type: number
+          nullable: true
+        rateMin:
+          type: number
+          nullable: true
+        rateMax:
+          type: number
+          nullable: true
+        termMonthsMin:
+          type: number
+          nullable: true
+        termMonthsMax:
+          type: number
+          nullable: true
+        preparationDays:
+          type: number
+          nullable: true
+        projectBudgetMin:
+          type: number
+          nullable: true
+        cofinancingPercent:
+          type: number
+          nullable: true
+        purposes:
+          type: array
+          items:
+            type: string
+        sectors:
+          type: array
+          items:
+            type: string
+        okvedPrefixes:
+          type: array
+          items:
+            type: string
+        companyTypes:
+          type: array
+          items:
+            type: string
+        applicantTypes:
+          type: array
+          items:
+            type: string
+            enum:
+              - legal_entity
+              - individual_entrepreneur
+              - individual
+              - team
+              - project
+        requiredDocuments:
+          type: array
+          items:
+            type: string
+        manualConditions:
+          type: array
+          items:
+            type: string
+        regions:
+          oneOf:
+          - type: string
+            enum:
+            - all
+          - type: array
+            items:
+              type: string
+        requirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/FundingRequirement'
+        deadline:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          enum:
+          - active
+          - closed
+          - upcoming
+          - unknown
+        difficulty:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+        source:
+          $ref: '#/components/schemas/FundingSource'
+        manualEligibilityConditions:
+          type: array
+          items:
+            type: string
+        imported:
+          type: object
+          properties:
+            provider:
+              type: string
+            startsAt:
+              type: string
+            endsAt:
+              type: string
+            firstSeenAt:
+              type: string
+            checkedAt:
+              type: string
+            factsVersion:
+              type: integer
+              enum:
+                - 1
+            ongoing:
+              type: boolean
+            verification:
+              type: string
+              enum:
+                - verified
+                - pending
+            kindEvidence:
+              type: object
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - grant
+                    - subsidy
+                    - preferential_loan
+                    - commercial_loan
+                    - loan
+                    - guarantee
+                    - lease
+                    - tax
+                    - property
+                    - service
+                    - investment
+                    - unknown
+                quote:
+                  type: string
+                field:
+                  type: string
+              required:
+                - kind
+                - quote
+                - field
+            evidence:
+              type: object
+              additionalProperties:
+                type: string
+            detail:
+              type: object
+              description: Дополнительные официальные сведения доступны в match; catalog исключает detail и evidence.
+          required:
+            - provider
+            - startsAt
+            - endsAt
+      required:
+      - id
+      - title
+      - kind
+      - providerName
+      - providerType
+      - description
+      - version
+      - amountMin
+      - amountMax
+      - rateMin
+      - rateMax
+      - termMonthsMin
+      - termMonthsMax
+      - preparationDays
+      - purposes
+      - sectors
+      - okvedPrefixes
+      - companyTypes
+      - requiredDocuments
+      - regions
+      - requirements
+      - deadline
+      - difficulty
+      - source
+    RequirementCheck:
+      allOf:
+      - $ref: '#/components/schemas/FundingRequirement'
+      - type: object
+        properties:
+          status:
+            type: string
+            enum:
+            - fulfilled
+            - missing
+            - unknown
+        required:
+        - status
+    FundingMatch:
+      type: object
+      properties:
+        opportunity:
+          $ref: '#/components/schemas/FundingOpportunity'
+        status:
+          type: string
+          enum:
+          - eligible
+          - almost_eligible
+          - need_more_data
+          - not_eligible
+          - expired
+          - upcoming
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Техническое соответствие известным критериям, не вероятность
+            одобрения
+        relevance:
+          type: number
+        fulfilledRequirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequirementCheck'
+        missingRequirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequirementCheck'
+        unknownRequirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequirementCheck'
+        missingDocuments:
+          type: array
+          items:
+            type: string
+        purposeFit:
+          type: boolean
+        amountFit:
+          type: string
+          enum:
+          - full
+          - partial
+          - unknown
+          - 'no'
+        termFit:
+          type: string
+          enum:
+          - 'yes'
+          - partial
+          - unknown
+          - 'no'
+        explanation:
+          type: string
+        nextActions:
+          type: array
+          items:
+            type: string
+        personalEligibility:
+          type: object
+          properties:
+            confirmed:
+              type: boolean
+            candidate:
+              type: boolean
+            reasons:
+              type: array
+              items:
+                type: string
+          required:
+            - confirmed
+            - reasons
+      required:
+      - opportunity
+      - status
+      - score
+      - relevance
+      - fulfilledRequirements
+      - missingRequirements
+      - unknownRequirements
+      - missingDocuments
+      - purposeFit
+      - amountFit
+      - termFit
+      - explanation
+      - nextActions
+    FundingStrategy:
+      type: object
+      properties:
+        summary:
+          type: string
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              opportunityId:
+                type: string
+              role:
+                type: string
+                enum:
+                - financing
+                - support
+              text:
+                type: string
+            required:
+            - opportunityId
+            - role
+            - text
+        notices:
+          type: array
+          items:
+            type: string
+        nextActions:
+          type: array
+          items:
+            type: string
+      required:
+      - summary
+      - options
+      - notices
+      - nextActions
+    FundingResponse:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum:
+          - official
+        need:
+          $ref: '#/components/schemas/FundingNeed'
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/FundingMatch'
+        strategy:
+          $ref: '#/components/schemas/FundingStrategy'
+      required:
+      - mode
+      - need
+      - matches
+      - strategy
+    Provenance:
+      type: object
+      properties:
+        sourceId:
+          type: string
+        source:
+          type: string
+        sourceUrl:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+        mode:
+          type: string
+          enum:
+          - official
+          - aggregator
+          - manual
+        kind:
+          type: string
+          enum:
+          - source
+          - derived
+          - manual
+        derivedFrom:
+          type: array
+          items:
+            type: string
+        computedAt:
+          type: string
+        period:
+          type: integer
+      required:
+      - sourceId
+      - source
+      - sourceUrl
+      - updatedAt
+      - mode
+      - kind
+    CompanyData:
+      type: object
+      properties:
+        ogrn:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        companyType:
+          type: string
+          nullable: true
+          enum:
+            - ООО
+            - АО
+            - ИП
+            - КФХ
+            - другое
+            - null
+        region:
+          type: string
+          nullable: true
+        registrationDate:
+          type: string
+          nullable: true
+        okvedMain:
+          type: string
+          nullable: true
+        taxRegime:
+          type: string
+          nullable: true
+        smeCategory:
+          type: string
+          nullable: true
+          enum:
+            - micro
+            - small
+            - medium
+            - null
+        status:
+          type: string
+          nullable: true
+        smeRegistryUpdatedAt:
+          type: string
+          nullable: true
+        ageMonths:
+          type: number
+          nullable: true
+        employees:
+          type: number
+          nullable: true
+        revenue:
+          type: number
+          nullable: true
+        income:
+          type: number
+          nullable: true
+        expenses:
+          type: number
+          nullable: true
+        employeesPeriod:
+          type: number
+          nullable: true
+        reportingPeriod:
+          type: number
+          nullable: true
+        inn:
+          type: string
+        okvedAdditional:
+          type: array
+          items:
+            type: string
+          nullable: true
+        isSme:
+          type: boolean
+          nullable: true
+        source:
+          type: string
+        sourceUrl:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+      required:
+      - ogrn
+      - name
+      - companyType
+      - region
+      - registrationDate
+      - okvedMain
+      - taxRegime
+      - smeCategory
+      - ageMonths
+      - employees
+      - revenue
+      - inn
+      - okvedAdditional
+      - isSme
+      - source
+      - sourceUrl
+      - updatedAt
+    CompanySource:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+        mode:
+          type: string
+          enum:
+          - official
+          - aggregator
+      required:
+      - id
+      - name
+      - url
+      - updatedAt
+      - mode
+    CompanyResponse:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum:
+          - official
+          - aggregator
+        entityType:
+          type: string
+          enum:
+          - ЮЛ
+          - ИП
+        company:
+          $ref: '#/components/schemas/CompanyData'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanySource'
+        provenance:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Provenance'
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/FundingProfile'
+          - type: object
+            properties:
+              inn:
+                type: string
+              name:
+                type: string
+              provenance:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/Provenance'
+      required:
+      - mode
+      - entityType
+      - company
+      - sources
+      - provenance
+      - profile
+    AIStatus:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        provider:
+          type: string
+          enum:
+          - gigachat
+        model:
+          type: string
+        status:
+          type: string
+          enum:
+          - ready
+          - limited
+          - not_configured
+          - unavailable
+        checked:
+          type: boolean
+        lastSuccess:
+          type: string
+          nullable: true
+        lastFailure:
+          type: object
+          nullable: true
+          properties:
+            code:
+              type: string
+            task:
+              type: string
+            at:
+              type: string
+          required:
+          - code
+          - task
+          - at
+        tasks:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: [ready, limited, unavailable]
+              at:
+                type: string
+              code:
+                type: string
+            required:
+            - status
+            - at
+        reason:
+          type: string
+          nullable: true
+      required:
+      - configured
+      - provider
+      - model
+      - status
+      - checked
+      - lastSuccess
+      - lastFailure
+      - tasks
+      - reason
+    FundingStatus:
+      type: object
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        closed:
+          type: integer
+        upcoming:
+          type: integer
+        unknown:
+          type: integer
+        snapshotVersion:
+          type: string
+        verifiedAt:
+          type: string
+          format: date
+        sources:
+          type: array
+          items:
+            type: string
+            format: uri
+      required:
+      - total
+      - active
+      - closed
+      - upcoming
+      - unknown
+      - snapshotVersion
+      - verifiedAt
+      - sources
+    DatasetMetadata:
+      type: object
+      properties:
+        dataset:
+          type: string
+          enum:
+          - registry
+          - sme
+          - employees
+          - financials
+        sourceUrl:
+          type: string
+          format: uri
+        updatedAt:
+          type: string
+        importedAt:
+          type: string
+        sha256:
+          type: string
+        records:
+          type: integer
+        skipped:
+          type: integer
+        file:
+          type: string
+        period:
+          type: number
+          nullable: true
+      required:
+      - dataset
+      - sourceUrl
+      - updatedAt
+      - importedAt
+      - sha256
+      - records
+      - skipped
+      - file
+      - period
+    ProviderStatus:
+      type: object
+      properties:
+        company:
+          type: object
+          properties:
+            fnsRegistry:
+              type: string
+              enum:
+              - ready
+              - missing
+              - error
+            smeRegistry:
+              type: string
+              enum:
+              - ready
+              - missing
+              - error
+            employees:
+              type: string
+              enum:
+              - ready
+              - missing
+              - error
+            financials:
+              type: string
+              enum:
+              - ready
+              - missing
+              - error
+            lastSync:
+              type: string
+              nullable: true
+            datasets:
+              type: array
+              items:
+                $ref: '#/components/schemas/DatasetMetadata'
+            activeProvider:
+              type: string
+              enum:
+                - dadata
+                - fns
+            dadata:
+              type: object
+              properties:
+                configured:
+                  type: boolean
+                state:
+                  type: string
+                lastSuccess:
+                  type: string
+                  nullable: true
+              required:
+                - configured
+                - state
+                - lastSuccess
+          required:
+            - fnsRegistry
+            - smeRegistry
+            - employees
+            - financials
+            - lastSync
+            - datasets
+            - activeProvider
+            - dadata
+        funding:
+          type: object
+          properties:
+            officialSnapshot:
+              type: string
+              enum:
+              - ready
+              - error
+            opportunities:
+              type: integer
+            verifiedAt:
+              type: string
+          required:
+            - officialSnapshot
+            - opportunities
+            - verifiedAt
+        ai:
+          type: object
+          properties:
+            gigachat:
+              type: string
+              enum:
+              - ready
+              - limited
+              - not_configured
+              - unavailable
+          required:
+            - gigachat
+      required:
+      - company
+      - funding
+      - ai
+    APIError:
+      type: object
+      properties:
+        code:
+          type: string
+        error:
+          type: string
+      required:
+        - code
+    LiveFundingStatus:
+      type: object
+      properties:
+        checkedAt:
+          type: string
+          nullable: true
+        imported:
+          type: integer
+        totalAtSource:
+          type: integer
+        nextPage:
+          type: integer
+        error:
+          type: string
+          nullable: true
+        syncing:
+          type: boolean
+        intervalMinutes:
+          type: integer
+        attemptedAt:
+          type: string
+          nullable: true
+        refreshedAt:
+          type: string
+          nullable: true
+        errorCode:
+          type: string
+          nullable: true
+        failedPage:
+          type: integer
+          nullable: true
+        refreshedPages:
+          type: integer
+      required:
+        - checkedAt
+        - imported
+        - totalAtSource
+        - nextPage
+        - error
+        - syncing
+        - intervalMinutes
+        - attemptedAt
+        - refreshedAt
+        - errorCode
+        - failedPage
+        - refreshedPages
+    AccountCompany:
+      type: object
+      nullable: true
+      description: Сохранённые публичные факты. null означает отсутствие компании; реквизиты полномочий не сохраняются.
+      properties:
+        region:
+          type: string
+          minLength: 1
+          maxLength: 120
+        okved:
+          type: string
+          pattern: ^\d{2}(\.\d{1,2}){0,2}$
+          maxLength: 120
+        companyType:
+          type: string
+          enum:
+            - ""
+            - ООО
+            - АО
+            - ИП
+            - КФХ
+            - другое
+            - null
+          maxLength: 120
+          nullable: true
+        ageMonths:
+          description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+          oneOf:
+            - type: integer
+              nullable: true
+              minimum: 0
+              maximum: 3000
+            - type: string
+              enum:
+                - ""
+        employees:
+          description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+          oneOf:
+            - type: integer
+              nullable: true
+              minimum: 0
+              maximum: 10000000
+            - type: string
+              enum:
+                - ""
+        revenue:
+          description: Пустая строка принимается как неизвестное значение. В ответе возвращается число или null.
+          oneOf:
+            - type: integer
+              nullable: true
+              minimum: 0
+              maximum: 1000000000000000
+            - type: string
+              enum:
+                - ""
+        isSme:
+          type: string
+          enum:
+            - "yes"
+            - "no"
+            - unknown
+            - null
+          maxLength: 120
+          nullable: true
+        tax:
+          type: string
+          maxLength: 120
+          nullable: true
+        goals:
+          type: array
+          items:
+            type: string
+            maxLength: 120
+          maxItems: 20
+          nullable: true
+        applicantType:
+          type: string
+          enum:
+            - legal_entity
+            - individual_entrepreneur
+            - individual
+            - team
+            - project
+        companyStatus:
+          type: string
+          nullable: true
+          maxLength: 120
+        industry:
+          type: string
+          maxLength: 120
+          nullable: true
+        stage:
+          type: string
+          maxLength: 120
+          nullable: true
+        inn:
+          type: string
+          pattern: ^(\d{10}|\d{12})$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+      required:
+        - inn
+        - name
+        - region
+        - okved
+    AccountState:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: integer
+          description: Unix timestamp в миллисекундах.
+        company:
+          $ref: "#/components/schemas/AccountCompany"
+        revision:
+          type: integer
+          minimum: 0
+        identity:
+          type: string
+          description: Источник идентификации. guest — анонимная сессия браузера.
+          enum:
+            - guest
+        authority:
+          type: string
+          enum:
+            - unverified
+        esia:
+          type: string
+          enum:
+            - not_configured
+        canSubmitApplications:
+          type: boolean
+          enum:
+            - false
+      required:
+        - id
+        - createdAt
+        - company
+        - revision
+        - identity
+        - authority
+        - esia
+        - canSubmitApplications
+    NotificationItem:
+      type: object
+      properties:
+        id:
+          type: string
+        programId:
+          type: string
+        title:
+          type: string
+        reason:
+          type: string
+        source:
+          type: string
+        createdAt:
+          type: integer
+          description: Unix timestamp в миллисекундах.
+        readAt:
+          type: integer
+          nullable: true
+          description: Unix timestamp в миллисекундах.
+        delivery:
+          type: string
+          description: Состояние внешней доставки. "off" — уведомление только в приложении (внешний канал не
+            подключён).
+          enum:
+            - pending
+            - "off"
+            - cancelled
+            - sending
+            - sent
+            - unconfirmed
+            - failed
+      required:
+        - id
+        - programId
+        - title
+        - reason
+        - source
+        - createdAt
+        - readAt
+        - delivery
+    NotificationsState:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        aiConfigured:
+          type: boolean
+        monitor:
+          type: object
+          properties:
+            lastRun:
+              type: string
+              nullable: true
+            lastError:
+              type: string
+              nullable: true
+          required:
+            - lastRun
+            - lastError
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationItem"
+          maxItems: 100
+      required:
+        - enabled
+        - aiConfigured
+        - items
+  securitySchemes:
+    GuestSession:
+      type: apiKey
+      in: header
+      name: X-Opora-Session
+      description: Анонимная сессия браузера — 32 случайных байта в base64url (43 символа), создаётся клиентом и
+        хранится на устройстве. Сервер хранит только SHA-256. Различает браузеры, но не подтверждает личность и
+        полномочия. Может быть заменена внешней авторизацией без изменения маршрутов.

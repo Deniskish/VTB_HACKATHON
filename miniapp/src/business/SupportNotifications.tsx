@@ -1,0 +1,84 @@
+import { useEffect, useRef, useState } from 'react';
+import type { FundingNeed, FundingProfile } from '../../api-server/funding-catalog/types';
+import { sessionHeaders } from './session';
+
+type Notice = { id: string; programId: string; title: string; reason: string; source: string; createdAt: number; readAt: number | null };
+type State = { enabled: boolean; aiConfigured: boolean; items: Notice[]; monitor?: { lastRun: string | null; lastError: string | null } };
+export function useSupportNotifications(profile: FundingProfile | null, need: FundingNeed) {
+  const [state, setState] = useState<State>({ enabled: false, aiConfigured: true, items: [] });
+  const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const current = useRef({ profile, need }); current.current = { profile, need };
+  const revision = useRef(0);
+  const mutations = useRef<Promise<unknown>>(Promise.resolve());
+  function mutate<T>(run: () => Promise<T>): Promise<T> {
+    const next = mutations.current.then(run, run); mutations.current = next.catch(() => {}); return next;
+  }
+  const fingerprint = JSON.stringify({ profile, need });
+  const request = async (path = '', method = 'GET', body?: unknown) => {
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
+    try {
+    const response = await fetch('/api/notifications' + path, { method,
+      headers: { ...sessionHeaders(), 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined, signal: controller.signal });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Не удалось обновить уведомления.');
+    return data;
+    } finally { clearTimeout(timer); }
+  };
+  useEffect(() => {
+    let cancelled = false, running = false;
+    const refresh = async (syncProfile = false) => {
+      if (running || document.hidden) return;
+      running = true;
+      const version = revision.current;
+      try {
+        let data: State = await request();
+        if (cancelled || version !== revision.current) return;
+        if (syncProfile && data.enabled) {
+          await mutate(async () => {
+            if (cancelled || version !== revision.current) return;
+            if (current.current.profile) await request('/subscription', 'PUT', current.current);
+            // A new device has no local profile yet. Only explicit removal may unsubscribe it.
+          });
+          data = await request();
+        }
+        if (!cancelled && version === revision.current) { setState(data); setError(''); }
+      } catch (e) { if (!cancelled) setError(e instanceof Error ? e.message : 'Нет связи с сервером.'); }
+      finally { running = false; }
+    };
+    void refresh(true); const timer = setInterval(() => void refresh(), 60000);
+    const onVisible = () => void refresh(); document.addEventListener('visibilitychange', onVisible);
+    return () => { cancelled = true; clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [fingerprint]);
+  const subscribe = async (enabled: boolean) => {
+    revision.current++;
+    setBusy(true); setError('');
+    try {
+      await mutate(() => request('/subscription', enabled ? 'PUT' : 'DELETE', enabled ? current.current : undefined));
+      setState(await request());
+      return true;
+    } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось сохранить.'); return false; }
+    finally { setBusy(false); }
+  };
+  const read = async (id: string) => {
+    try { await request('/read', 'POST', { id }); setState((s) => ({ ...s, items: s.items.map((n) => n.id === id ? { ...n, readAt: Date.now() } : n) })); }
+    catch { /* Remains unread until the server confirms. */ }
+  };
+  return { ...state, busy, error, subscribe, read };
+}
+export function SupportNotificationSettings({ notifications: n, onOpen }: { notifications: ReturnType<typeof useSupportNotifications>; onOpen?: (programId: string) => void }) {
+  return <section className="profile-panel support-notification-settings">
+    <h3>Уведомления о новых мерах</h3>
+    <label className="notification-toggle"><span>Сообщать о новых мерах поддержки</span><input type="checkbox" checked={n.enabled} disabled={n.busy} onChange={(e) => void n.subscribe(e.target.checked)} /></label>
+    {n.enabled && (n.items.length ? <>
+      <ul className="notification-list">
+        {n.items.map((item) => <li key={item.id} className={item.readAt ? undefined : 'unread'}>
+          <b>{item.title}</b>
+          <p>{item.reason}</p>
+          {onOpen && <button type="button" className="text-button" onClick={() => { void n.read(item.id); onOpen(item.programId); }}>Открыть меру</button>}
+        </li>)}
+      </ul>
+      <p className="notification-note">Связь с бизнесом отмечена AI. Условия и решение — у оператора программы.</p>
+    </> : <p className="notification-note">Пока уведомлений нет.</p>)}
+  </section>;
+}

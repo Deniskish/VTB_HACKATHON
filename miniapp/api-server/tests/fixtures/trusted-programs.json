@@ -1,0 +1,694 @@
+[
+  {
+    "id": "innovation",
+    "title": "Грант на разработку нового продукта",
+    "providerName": "Модельная программа · инновации",
+    "providerType": "government",
+    "kind": "grant",
+    "description": "От идеи до первого прототипа. Финансирование исследований и разработки нового технологического продукта.",
+    "amountMin": null,
+    "amountMax": 4000000,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Инновации",
+      "IT"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "okved",
+        "operator": "eq",
+        "value": "62",
+        "label": "Основной ОКВЭД относится к IT (62)",
+        "required": true
+      },
+      {
+        "field": "ageMonths",
+        "operator": "eq",
+        "value": 12,
+        "label": "Компания работает не менее 12 месяцев",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Разработка продукта",
+        "label": "Цель — разработка нового продукта",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Выписка из ЕГРЮЛ / ЕГРИП",
+      "Подтверждение статуса МСП",
+      "Бизнес-план проекта",
+      "Смета расходов"
+    ],
+    "deadline": "2026-11-30",
+    "difficulty": "high",
+    "preparationDays": 20,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-01. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "equipment",
+    "title": "Компенсация затрат на оборудование",
+    "providerName": "Модельная программа · региональная поддержка",
+    "providerType": "government",
+    "kind": "grant",
+    "description": "Верните часть затрат на оборудование, необходимое для развития вашего бизнеса.",
+    "amountMin": null,
+    "amountMax": 3000000,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": [
+      "Москва"
+    ],
+    "purposes": [],
+    "sectors": [
+      "Оборудование"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "region",
+        "operator": "eq",
+        "value": "Москва",
+        "label": "Бизнес зарегистрирован в Москве",
+        "required": true
+      },
+      {
+        "field": "ageMonths",
+        "operator": "eq",
+        "value": 24,
+        "label": "Компания работает не менее 24 месяцев",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Покупка оборудования",
+        "label": "Планируется покупка оборудования",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Выписка из ЕГРЮЛ / ЕГРИП",
+      "Подтверждение статуса МСП",
+      "Договор приобретения оборудования",
+      "Платёжные документы"
+    ],
+    "deadline": "2026-12-15",
+    "difficulty": "medium",
+    "preparationDays": 12,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-02. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "working-capital",
+    "title": "Льготное финансирование для роста",
+    "providerName": "Модельная программа · малый бизнес",
+    "providerType": "government",
+    "kind": "loan",
+    "description": "Средства на текущие расходы и новые задачи компании. Индивидуальная оценка кредитором.",
+    "amountMin": null,
+    "amountMax": 10000000,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Все отрасли"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "ageMonths",
+        "operator": "eq",
+        "value": 6,
+        "label": "Компания работает не менее 6 месяцев",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Пополнение оборотных средств",
+        "label": "Нужны оборотные средства",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Выписка из ЕГРЮЛ / ЕГРИП",
+      "Бухгалтерская отчётность",
+      "План использования средств"
+    ],
+    "deadline": "2026-12-31",
+    "difficulty": "medium",
+    "preparationDays": 10,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-03. Ставка и реальные условия не определены.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "hiring",
+    "title": "Поддержка найма и развития команды",
+    "providerName": "Модельная программа · занятость",
+    "providerType": "government",
+    "kind": "grant",
+    "description": "Подготовьте компанию к расширению команды и обучению новых сотрудников.",
+    "amountMin": null,
+    "amountMax": 500000,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Занятость"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "employees",
+        "operator": "eq",
+        "value": 100,
+        "label": "В компании не более 100 сотрудников",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Найм сотрудников",
+        "label": "Планируется найм сотрудников",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Подтверждение статуса МСП",
+      "План найма",
+      "Расчёт затрат на обучение"
+    ],
+    "deadline": "2026-10-31",
+    "difficulty": "medium",
+    "preparationDays": 10,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-04. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "export",
+    "title": "Первые шаги на зарубежных рынках",
+    "providerName": "Модельная программа · экспорт",
+    "providerType": "government",
+    "kind": "service",
+    "description": "Обучение, экспертные консультации и подготовка стратегии выхода на новые рынки.",
+    "amountMin": null,
+    "amountMax": null,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Экспорт"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Выход на экспорт",
+        "label": "Компания планирует выход на экспорт",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Выписка из ЕГРЮЛ / ЕГРИП",
+      "Описание продукта",
+      "Анкета участника"
+    ],
+    "deadline": "2027-01-20",
+    "difficulty": "low",
+    "preparationDays": 4,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-05. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "guarantee",
+    "title": "Поручительство при нехватке залога",
+    "providerName": "Модельная программа · развитие бизнеса",
+    "providerType": "government",
+    "kind": "guarantee",
+    "description": "Поручительство помогает обеспечить обязательства по кредиту. Это не выплата компании.",
+    "amountMin": null,
+    "amountMax": 5000000,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Все отрасли"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Пополнение оборотных средств",
+        "label": "Цель — пополнение оборотных средств",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Бухгалтерская отчётность",
+      "План использования средств",
+      "Анкета участника"
+    ],
+    "deadline": "2026-12-25",
+    "difficulty": "medium",
+    "preparationDays": 7,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-06. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "tax",
+    "title": "Налоговый навигатор технологической компании",
+    "providerName": "Модельная программа · развитие бизнеса",
+    "providerType": "government",
+    "kind": "tax",
+    "description": "Проверка возможности снижения налоговой нагрузки. Экономия зависит от базы, режима и условий; ставка в демо не задаётся.",
+    "amountMin": null,
+    "amountMax": null,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Все отрасли"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "okved",
+        "operator": "eq",
+        "value": "62",
+        "label": "Основной ОКВЭД относится к IT (62)",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Снижение налоговой нагрузки",
+        "label": "Цель — снижение налоговой нагрузки",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Выписка из ЕГРЮЛ / ЕГРИП",
+      "Бухгалтерская отчётность"
+    ],
+    "deadline": "2026-12-25",
+    "difficulty": "low",
+    "preparationDays": 6,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-07. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "leasing",
+    "title": "Лизинг оборудования для развития",
+    "providerName": "Модельная программа · развитие бизнеса",
+    "providerType": "government",
+    "kind": "lease",
+    "description": "Финансирование оборудования через лизинг. Потребуются аванс и последующие платежи; стоимость актива не равна размеру льготы.",
+    "amountMin": null,
+    "amountMax": 6000000,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Все отрасли"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "ageMonths",
+        "operator": "eq",
+        "value": 12,
+        "label": "Компания работает не менее 12 месяцев",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Покупка оборудования",
+        "label": "Цель — покупка оборудования",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Коммерческое предложение",
+      "Бухгалтерская отчётность",
+      "План использования средств"
+    ],
+    "deadline": "2026-12-25",
+    "difficulty": "medium",
+    "preparationDays": 10,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-08. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "property",
+    "title": "Помещение для развития бизнеса",
+    "providerName": "Модельная программа · развитие бизнеса",
+    "providerType": "government",
+    "kind": "property",
+    "description": "Подбор помещений на льготных условиях. Денежная стоимость преимущества без объекта и договора не определяется.",
+    "amountMin": null,
+    "amountMax": null,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Все отрасли"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Аренда помещения",
+        "label": "Цель — аренда помещения",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Выписка из ЕГРЮЛ / ЕГРИП",
+      "Описание проекта"
+    ],
+    "deadline": "2026-12-25",
+    "difficulty": "medium",
+    "preparationDays": 8,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-09. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "microloan",
+    "title": "Микрозаём на текущие задачи",
+    "providerName": "Модельная программа · развитие бизнеса",
+    "providerType": "government",
+    "kind": "loan",
+    "description": "Возвратный заём для небольших расходов. Проценты, обеспечение и итоговую сумму определяет оператор.",
+    "amountMin": null,
+    "amountMax": 2000000,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Все отрасли"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Пополнение оборотных средств",
+        "label": "Цель — пополнение оборотных средств",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Бухгалтерская отчётность",
+      "План использования средств"
+    ],
+    "deadline": "2026-12-25",
+    "difficulty": "medium",
+    "preparationDays": 8,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-10. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "consulting",
+    "title": "Экспертная подготовка нового проекта",
+    "providerName": "Модельная программа · развитие бизнеса",
+    "providerType": "government",
+    "kind": "service",
+    "description": "Консультация по бизнес-плану и подготовке проекта. Услуга без денежной выплаты.",
+    "amountMin": null,
+    "amountMax": null,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Все отрасли"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Разработка продукта",
+        "label": "Цель — разработка продукта",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Описание проекта",
+      "Анкета участника"
+    ],
+    "deadline": "2026-12-25",
+    "difficulty": "low",
+    "preparationDays": 3,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-11. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  },
+  {
+    "id": "procurement",
+    "title": "Подготовка к закупкам и поиску заказчиков",
+    "providerName": "Модельная программа · развитие бизнеса",
+    "providerType": "government",
+    "kind": "service",
+    "description": "Помощь с подготовкой предложения для заказчиков. Участие не гарантирует получение контракта.",
+    "amountMin": null,
+    "amountMax": null,
+    "rateMin": null,
+    "rateMax": null,
+    "termMonthsMin": null,
+    "termMonthsMax": null,
+    "regions": "all",
+    "purposes": [],
+    "sectors": [
+      "Все отрасли"
+    ],
+    "okvedPrefixes": [],
+    "companyTypes": [],
+    "status": "active",
+    "requirements": [
+      {
+        "field": "isSme",
+        "operator": "eq",
+        "value": "yes",
+        "label": "Компания состоит в реестре МСП",
+        "required": true
+      },
+      {
+        "field": "goals",
+        "operator": "eq",
+        "value": "Поиск покупателей",
+        "label": "Цель — поиск покупателей",
+        "required": true
+      }
+    ],
+    "requiredDocuments": [
+      "Описание продукта",
+      "Анкета участника"
+    ],
+    "deadline": "2026-12-25",
+    "difficulty": "low",
+    "preparationDays": 5,
+    "source": {
+      "name": "Учебный набор OPORA-DEMO-12. Условия придуманы для проверки сценария.",
+      "url": null,
+      "type": "demo",
+      "updatedAt": "2026-09-17"
+    },
+    "version": "demo-2"
+  }
+]

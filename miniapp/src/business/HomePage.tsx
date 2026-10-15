@@ -1,0 +1,74 @@
+import { ThemedImage } from './ThemedImage';
+import { Icon } from './Icon';
+import { AppNavigation, BrandWordmark, HeaderActions } from './AppChrome';
+import { useSystemTheme } from '../theme';
+import darkMark from './brand-mark-dark.webp';
+import lightMark from './brand-mark-light.webp';
+import type { BusinessAnalysis } from './useBusinessAnalysis';
+import type { WorkspaceInsight } from '../../api-server/ai/types';
+
+type HomePageProps = {
+  showNavigation?: boolean;
+  onFindSupport: () => void;
+  onAddBusiness: () => void;
+  onAssistant: () => void;
+  onSettings: () => void;
+  onApplications: () => void;
+  onBusiness: () => void;
+  personalized: boolean;
+  analysis: BusinessAnalysis;
+  onAIAction: (action: WorkspaceInsight['action']) => void;
+};
+
+function Arrow() {
+  return <span className="home-arrow" aria-hidden="true"><Icon name="arrow" size={20} /></span>;
+}
+
+export function HomePage({ showNavigation = true, onFindSupport, onAddBusiness, onAssistant, onSettings, onApplications, onBusiness, personalized, analysis, onAIAction }: HomePageProps) {
+  const theme = useSystemTheme();
+  const insight = personalized ? analysis.data?.personalization?.sections.home : undefined;
+  const analyzing = personalized && analysis.status === 'loading';
+  return <div className={`home-dashboard${personalized ? ' home-personalized' : ''}`}>
+    <header className="home-topbar">
+      <span className="home-brand-icon"><img src={theme === 'dark' ? darkMark : lightMark} alt="Опора" width={128} height={128} draggable={false} /></span>
+      <HeaderActions onSettings={onSettings} />
+    </header>
+    <div className="home-scroll">
+      <section className="home-hero" aria-label="Опора — поддержка бизнеса">
+        <div className="home-hero-artwork">
+          <ThemedImage className="home-hero-shapes" src="/assets/hero-shapes.png" width={1254} height={1254} alt="" draggable={false} />
+          <BrandWordmark className="home-wordmark-hero" />
+        </div>
+      </section>
+      <section className="home-actions" aria-label="Возможности для бизнеса">
+        <div className="home-action-pair">
+          <button type="button" className="home-action home-action-support" onClick={onFindSupport}>
+            <span className="home-action-title">{personalized ? 'Поддержка' : 'Найти'}<br />{personalized ? 'для вас' : 'поддержку'}</span>
+            <Arrow />
+            <ThemedImage className="home-document" src="/assets/document.png" width={1254} height={1254} alt="" draggable={false} />
+          </button>
+          <button type="button" className="home-action home-action-business" onClick={onAddBusiness}>
+            <span className="home-action-title">{personalized ? 'Мой' : 'Добавить'}<br />бизнес</span>
+            <Arrow />
+            <ThemedImage className="home-briefcase" src="/assets/briefcase.png" width={1254} height={1254} alt="" draggable={false} />
+          </button>
+        </div>
+        <button type="button" className="home-opportunities home-adaptive" disabled={analyzing} aria-busy={analyzing}
+          onClick={() => insight ? onAIAction(insight.action) : onAssistant()}>
+          <ThemedImage className="home-orb" src="/assets/orb.png" width={1254} height={1254} alt="" draggable={false} />
+          <span className="home-opportunities-copy">
+            {personalized && <span className="home-ai-label">{insight ? 'AI · следующий шаг' : analyzing ? 'AI · анализ бизнеса' : 'Помощь с бизнесом'}</span>}
+            <span className="home-action-title">{insight?.title ?? (analyzing ? 'Определяем следующий шаг…' : 'AI-помощник')}</span>
+          </span>
+          {!analyzing && <Arrow />}
+        </button>
+      </section>
+    </div>
+    {showNavigation && <AppNavigation active="overview" onNavigate={(page) => {
+      if (page === 'programs') onFindSupport();
+      else if (page === 'applications') onApplications();
+      else if (page === 'profile') onBusiness();
+      else document.querySelector('.home-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }} />}
+  </div>;
+}

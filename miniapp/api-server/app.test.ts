@@ -1,0 +1,137 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createApp, type AIClient } from './app';
+import { mkdtemp, rm } from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import { PrivacyError } from './privacy';
+import type { AIResult } from './ai/types';
+import { SourceStore } from './ai/sources';
+import { NotificationStore } from './funding-catalog/notifications';
+async function server(giga: AIClient | null, run: (url: string) => Promise<void>) {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'opora-api-'));
+  const server = createApp({ giga, env: {}, fnsDir: dir }).listen(0, '127.0.0.1');
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  const address = server.address(); assert.ok(address && typeof address === 'object');
+  try { await run(`http://127.0.0.1:${address.port}`); }
+  finally { await new Promise<void>((resolve) => { server.close(() => resolve()); server.closeAllConnections(); }); await rm(dir, { recursive: true, force: true }); }
+}
+test('health, provider/catalog/AI status and missing real FNS dataset stay honest', async () => server(null, async (url) => {
+  for (const endpoint of ['/api/health', '/api/providers/status', '/api/funding/status', '/api/funding/catalog', '/api/ai/status']) assert.equal((await fetch(url + endpoint)).status, 200);
+  const providers = await (await fetch(url + '/api/providers/status')).json() as any;
+  assert.equal(providers.company.fnsRegistry, 'missing'); assert.equal(providers.ai.gigachat, 'not_configured');
+  assert.equal((await fetch(url + '/api/company/7707083893')).status, 503);
+  assert.equal((await fetch(url + '/api/company/invalid')).status, 400);
+  assert.equal((await fetch(url + '/api/demo-notification')).status, 404);
+  const response = await fetch(url + '/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: 'Что подходит?', context: {} }) });
+  assert.equal(response.status, 503); assert.ok((await response.json() as any).code);
+}));
+
+test('direct API catalogue is compressed even when ingress bypasses the frontend', async () => server(null, async (url) => {
+  const response = await fetch(url + '/api/funding/catalog', { headers: { 'Accept-Encoding': 'gzip' } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-encoding'), 'gzip');
+  assert.ok((await response.json() as any).opportunities.length > 0);
+}));
+
+test('local ingress keeps per-client AI limits and does not trust a forged earlier forwarding hop', async () => server({ async complete() { return { answer: 'Ответ', mode: 'llm' }; } }, async url => {
+  const send = (forwarded: string) => fetch(url + '/api/assistant', { method: 'POST', headers: {
+    'Content-Type': 'application/json', 'X-Forwarded-For': forwarded,
+  }, body: JSON.stringify({ question: 'Вопрос', context: {} }) });
+  for (let i = 0; i < 15; i++) assert.equal((await send('198.51.100.10')).status, 200);
+  assert.equal((await send('198.51.100.10')).status, 429);
+  assert.equal((await send('198.51.100.11')).status, 200, 'another client must not inherit the proxy-wide limit');
+  assert.equal((await send('203.0.113.99, 198.51.100.10')).status, 429, 'forged leftmost hop cannot bypass the nearest untrusted client');
+}));
+
+test('forwarded headers are trusted only from a loopback peer', () => {
+  const trust = createApp({ giga: null, env: {} }).get('trust proxy fn');
+  assert.equal(trust('127.0.0.1', 0), true);
+  assert.equal(trust('::1', 0), true);
+  assert.equal(trust('198.51.100.10', 0), false);
+});
+
+test('unavailable change-monitor archive cannot disable other AI tasks', async t => {
+  let reads = 0;
+  t.mock.method(SourceStore.prototype, 'evidence', async () => { reads++; throw Error('unreadable source snapshot'); });
+  const reply: AIResult = { mode: 'llm', answer: 'Ответ', followups: [], citations: [], actions: [], findings: [], matches: [], scenarios: [], tools: [] };
+  await server({ async complete() { return reply; }, async assist(_input, evidence) { assert.deepEqual(evidence, []); return reply; } }, async url => {
+    for (const task of ['chat', 'workspace', 'review', 'changes']) {
+      const response = await fetch(url + '/api/ai/assist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task, question: 'Вопрос', context: {} }) });
+      assert.equal(response.status, 200); assert.equal((await response.json()).mode, 'llm');
+    }
+    assert.equal(reads, 1);
+  });
+});
+test('configured AI becomes ready only after a successful request', async () => server({ async complete() { return { answer: 'Проверьте условия.', mode: 'llm' }; } }, async (url) => {
+  const first = await (await fetch(url + '/api/ai/status')).json() as any;
+  assert.equal(first.configured, true); assert.equal(first.checked, false); assert.notEqual(first.status, 'ready');
+  assert.equal((await fetch(url + '/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: 'Сроки', context: {} }) })).status, 200);
+  assert.equal((await (await fetch(url + '/api/ai/status')).json() as any).status, 'ready');
+}));
+
+test('v2 reports a refused request separately from an outage and recovers on success', async () => {
+  let attempt = 0;
+  const reply: AIResult = { mode: 'llm', answer: 'Ответ', followups: [], citations: [], actions: [], findings: [], matches: [], scenarios: [], tools: [] };
+  await server({ async complete() { return reply; }, async assist() {
+    attempt++;
+    if (attempt === 1) return { ...reply, mode: 'local', providerFailure: 'PROVIDER_CONTENT_BLOCKED' };
+    if (attempt === 2) throw new DOMException('PRIVATE_DATA', 'TimeoutError');
+    if (attempt === 3) throw new PrivacyError('PROVIDER_RATE_LIMITED');
+    return reply;
+  } }, async url => {
+    for (const [code, reason, status] of [['PROVIDER_CONTENT_BLOCKED', 'request_rejected', 'limited'], ['PROVIDER_TIMEOUT', 'timeout', 'unavailable'], ['PROVIDER_RATE_LIMITED', 'rate_limit', 'unavailable'], [null, null, 'ready']]) {
+      const response = await fetch(url + '/api/ai/assist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: 'chat', question: 'Вопрос', context: {} }) });
+      const body = await response.json();
+      assert.doesNotMatch(JSON.stringify(body), /PRIVATE_DATA/);
+      if (response.status === 502) assert.equal(body.code, code);
+      const health = await (await fetch(url + '/api/ai/status')).json() as any;
+      assert.equal(health.reason, reason); assert.equal(health.status, status);
+      if (code) { assert.equal(health.lastFailure.code, code); assert.equal(health.lastFailure.task, 'chat'); }
+      else assert.ok(health.lastSuccess);
+    }
+  });
+});
+test('AI timeout and unexpected errors never leak details; invalid JSON and size limit use unified errors', async () => server({ async complete() { throw new DOMException('PRIVATE_PROVIDER_MESSAGE', 'TimeoutError'); } }, async (url) => {
+  const response = await fetch(url + '/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: 'Сроки', context: {} }) });
+  assert.equal(response.status, 502); assert.doesNotMatch(await response.text(), /PRIVATE_PROVIDER_MESSAGE/);
+  const status = await (await fetch(url + '/api/ai/status')).json() as any;
+  assert.equal(status.status, 'unavailable'); assert.equal(status.reason, 'timeout');
+  for (const body of ['{', JSON.stringify({ question: 'x'.repeat(60000) })]) {
+    const response = await fetch(url + '/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    assert.equal(response.status, 400); assert.equal((await response.json() as any).code, 'INVALID_INPUT');
+  }
+}));
+test('TLS failures provide safe certificate diagnostics without disabling verification', async () => server({ async complete() {
+  throw new Error('PRIVATE_TLS_MESSAGE', { cause: { code: 'SELF_SIGNED_CERT_IN_CHAIN', details: 'PRIVATE_CHAIN' } });
+} }, async (url) => {
+  const response = await fetch(url + '/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: 'Сроки', context: {} }) });
+  assert.equal(response.status, 502);
+  const text = await response.text(); assert.match(text, /AI_TLS_ERROR/); assert.match(text, /NODE_EXTRA_CA_CERTS/); assert.doesNotMatch(text, /PRIVATE_/);
+  assert.equal((await (await fetch(url + '/api/ai/status')).json() as any).reason, 'tls');
+}));
+
+test('browser session reaches account and notifications without external authorization; identity is replaceable', async () => {
+  for (const identity of [undefined, () => 'external:client-1']) {
+    const store = new NotificationStore(':memory:');
+    const server = createApp({ giga: null, env: {}, notifications: store, identity }).listen(0, '127.0.0.1');
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const address = server.address(); assert.ok(address && typeof address === 'object');
+    const url = `http://127.0.0.1:${address.port}`;
+    const headers = { 'X-Opora-Session': 'x'.repeat(43), 'Content-Type': 'application/json' };
+    try {
+      if (!identity) {
+        const anonymous = await fetch(url + '/api/account');
+        assert.equal(anonymous.status, 401); assert.equal((await anonymous.json() as any).code, 'SESSION_REQUIRED');
+      }
+      const account = await (await fetch(url + '/api/account', { headers })).json() as any;
+      assert.equal(account.identity, 'guest'); assert.equal(account.canSubmitApplications, false);
+      const subscription = await fetch(url + '/api/notifications/subscription', { method: 'PUT', headers, body: JSON.stringify({ profile: { region: 'Москва', okved: '28.99' } }) });
+      assert.equal(subscription.status, 200); assert.deepEqual(await subscription.json(), { enabled: true });
+      const notifications = await (await fetch(url + '/api/notifications', { headers })).json() as any;
+      assert.equal(notifications.enabled, true); assert.deepEqual(notifications.items, []);
+      if (identity) assert.ok(store.get('external:client-1'));
+      assert.equal((await fetch(url + '/api/bot/workspace', { headers })).status, 404);
+    } finally { await new Promise<void>((resolve) => { server.close(() => resolve()); server.closeAllConnections(); }); store.db.close(); }
+  }
+});

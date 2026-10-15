@@ -1,0 +1,16 @@
+{
+  "name": "opora",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Business support assistant web application",
+  "scripts": {
+    "dev": "npm --prefix miniapp run dev",
+    "build": "npm run build:api && npm run build:miniapp",
+    "test": "npm --prefix miniapp test && npm --prefix miniapp/api-server test",
+    "build:miniapp": "npm --prefix miniapp run build",
+    "build:api": "npm --prefix miniapp/api-server run build",
+    "api:dev": "npm --prefix miniapp/api-server run dev",
+    "api:server": "npm --prefix miniapp/api-server start",
+    "sync:fns": "npm --prefix miniapp/api-server run sync:fns --"
+  }
+}
