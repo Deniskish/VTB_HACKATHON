@@ -1,0 +1,67 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opora-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_SSH_KEY_B64: ${{ secrets.SERVER_SSH_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s' "$SERVER_SSH_KEY_B64" | base64 --decode > ~/.ssh/opora_deploy
+          chmod 600 ~/.ssh/opora_deploy
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy exact commit
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          SSH=(ssh -i ~/.ssh/opora_deploy "${SERVER_USER}@${SERVER_HOST}")
+          SCP=(scp -i ~/.ssh/opora_deploy)
+
+          "${SSH[@]}" 'mkdir -p /opt/opora-deploy && chmod 700 /opt/opora-deploy'
+          "${SCP[@]}" ops/deploy.cjs "${SERVER_USER}@${SERVER_HOST}:/opt/opora-deploy/deploy.cjs"
+
+          "${SSH[@]}" "
+            set -euo pipefail
+            cd /opt/app
+
+            if git ls-files --error-unmatch miniapp/api-server/source-data/sources.json >/dev/null 2>&1; then
+              git restore -- miniapp/api-server/source-data/sources.json
+            fi
+
+            flock -w 900 /opt/opora-deploy/deploy.lock \
+              node /opt/opora-deploy/deploy.cjs /opt/app '$SHA'
+          "
+
+      - name: Verify public release
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          BODY="$(curl -fsS https://business-opora.ru/api/health)"
+          printf '%s\n' "$BODY"
+          printf '%s' "$BODY" | grep -Fq "$SHA"
